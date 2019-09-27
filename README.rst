@@ -1,23 +1,22 @@
-=========================================
 FogLAMP Simple Python filter plugin
-=========================================
+===================================
 
 The simple Python filter plugin is analogous to the expression filter but accept Python code rather than the expression syntax.
 
 Differently from FogLAMP Python2 and Python3 filters plugins which can process all the incoming data and configuration by loading a Python script, this filter can only transform a single item of the incoming reading data and cannot access any configuration option.
 
-NOTE:
-Python3.x development package is required.
-
+.. note::
+   Python3.x development package is required.
+   
 Configuration
 -------------
 
-The filter supports the following configuration option
+This filter requires following configuration option:
 
 code
-  The Python code that can filter a single reading data
+  The Python code that will be applied to filter a reading data
 
-The following examples show how to filter a reading data
+The following examples show how to filter the readings data,
 
 - Change datapoint value  
 
@@ -32,10 +31,9 @@ The following examples show how to filter a reading data
     reading[b'temp_fahr'] = reading[b'temperature'] * 9 / 5 + 32
 
 - Generate an exponential moving average (ema)
-   In this case we need to parse some data while filtering current dataset
-   the filter receives in input.
-   A global 'user_data' empty dictionary is available to the Python interpreter
-   and key values can be easily added:
+   
+   In this case we need to parse some data while filtering current dataset the filter receives in input. 
+   A global 'user_data' empty dictionary is available to the Python interpreter and key values can be easily added.
 
 .. code-block:: console
 
@@ -52,7 +50,7 @@ The following examples show how to filter a reading data
 How to add Python code to the filter
 ------------------------------------
 
-Python code can be entered using FogLamP API rest calls, example with curl command:
+Python code can be entered using FogLAMP REST API call, example with curl:
 
 .. code-block:: console
 
@@ -60,7 +58,7 @@ Python code can be entered using FogLamP API rest calls, example with curl comma
 
 .. code-block:: console
 
-    # curl -X POST "http://127.0.0.1:8081/foglamp/filter" -d '
+    $ curl -X POST "http://127.0.0.1:8081/foglamp/filter" -d '
     {
         "name":"CodePy3",
         "plugin":"simplepython",
@@ -70,18 +68,17 @@ Python code can be entered using FogLamP API rest calls, example with curl comma
         }
     }'
 
-Note: the escape for single quote character in the curl command.
+Note the escaping for single quote character in the payload.
 
-It is also possible to add the needed JSON code for API call in a file, i.e. filter.json
+It is also possible to send the required JSON payload via REST API call using a file, e.g. filter.json
 
 .. code-block:: console
 
-    # curl -X POST -H "Content-Type: application/json" -d @filter.json http://127.0.0.1:8081/foglamp/filter
+    $ curl -X POST -H "Content-Type: application/json" -d @filter.json http://127.0.0.1:8081/foglamp/filter
 
-This way the escape for single quote character in not needed.
+This way the escaping for the single quote character is not needed.
 
-Python code can be also entered only using a text box within FogLAMP GUI (single quote character escape is not needed).
-
+Python code can also be entered using a textbox available (for code) in FogLAMP GUI (single quote character escaping is not needed).
 
 Build
 -----
@@ -135,9 +132,11 @@ Examples:
 - set FOGLAMP_INCLUDE
 
   $ cmake -DFOGLAMP_INCLUDE=/dev-package/include ..
+
 - set FOGLAMP_LIB
 
   $ cmake -DFOGLAMP_LIB=/home/dev/package/lib ..
+
 - set FOGLAMP_INSTALL
 
   $ cmake -DFOGLAMP_INSTALL=/home/source/develop/FogLAMP
