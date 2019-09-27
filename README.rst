@@ -68,7 +68,7 @@ Python code can be entered using FogLAMP REST API call, example with curl:
         }
     }'
 
-Note: The escape for single quote character in the payload.
+Note the escaping for single quote character in the payload.
 
 It is also possible to send the required JSON payload via REST API call using a file, e.g. filter.json
 
@@ -76,9 +76,9 @@ It is also possible to send the required JSON payload via REST API call using a 
 
     $ curl -X POST -H "Content-Type: application/json" -d @filter.json http://127.0.0.1:8081/foglamp/filter
 
-This way the escape for the single quote character is not needed.
+This way the escaping for the single quote character is not needed.
 
-Python code can also be entered using a textbox available (for code) in FogLAMP GUI (single quote character escape is not needed).
+Python code can also be entered using a textbox available (for code) in FogLAMP GUI (single quote character escaping is not needed).
 
 Build
 -----
