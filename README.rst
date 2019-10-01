@@ -22,7 +22,7 @@ The following examples show how to filter the readings data,
 
 .. code-block:: console
 
-    reading['point_1'] = reading['point_1'] * 2 + 15
+    reading[b'point_1'] = reading[b'point_1'] * 2 + 15
 
 - Create a new datapoint while filtering
 
