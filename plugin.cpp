@@ -21,7 +21,7 @@
 #include <version.h>
 #include "simple_python.h"
 
-#define FILTER_NAME "simplepython"
+#define FILTER_NAME "simple-python"
 
 const char *default_config = QUOTE({
 	"plugin" : {

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.4.0)
 
 # Set the plugin name to build
-project(simplepython)
+project(simple-python)
 
 # Supported options:
 # -DFOGLAMP_INCLUDE
@@ -12,8 +12,7 @@ project(simplepython)
 # If no -D options are given and FOGLAMP_ROOT environment variable is set
 # then FogLAMP libraries and header files are pulled from FOGLAMP_ROOT path.
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -O3 -g")
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_CXX_FLAGS "-std=c++11 -O3")
 
 # Set plugin type (south, north, filter)
 set(PLUGIN_TYPE "filter")
