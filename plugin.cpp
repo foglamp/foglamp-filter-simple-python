@@ -256,12 +256,18 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 
 	PyGILState_Release(state);
 
-	// 2- optionally free reading set
-	// delete (ReadingSet *)readingSet;
-	// With the above DataPointValue change we don't need to free input data
 
-	// 3- pass newReadings to filter->m_func instead of readings if needed.
-	// With the value change we can pass same input readingset just modified
+	// Call asset tracker
+	for (vector<Reading *>::const_iterator elem = readings->begin();
+						      elem != readings->end();
+						      ++elem)
+	{
+		AssetTracker::getAssetTracker()->addAssetTrackingTuple(filter->getConfig().getName(),
+									(*elem)->getAssetName(),
+									string("Filter"));
+	}
+
+	// Pass readingSet to the next filter
 	filter->m_func(filter->m_data, readingSet);
 }
 
