@@ -48,7 +48,7 @@ const char *default_config = QUOTE({
 using namespace std;
 static void* libpython_handle = NULL;
 static void createPythonReadingData(PyObject* localDictionary,
-				    vector<Reading *>::const_iterator& elem);
+				    vector<Reading *>::iterator& elem);
 static vector<Datapoint *>* getFilteredReadingData(PyObject* result);
 
 /**
@@ -198,8 +198,8 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 	vector<Reading *>* readings = ((ReadingSet *)readingSet)->getAllReadingsPtr();
 
 	// Iterate the input readings
-	for (vector<Reading *>::const_iterator elem = readings->begin();
-						      elem != readings->end();)
+	for (vector<Reading *>::iterator elem = readings->begin();
+					 elem != readings->end(); )
 	{
 		PyObject* localDictionary = PyDict_New();
 
@@ -347,7 +347,7 @@ void plugin_reconfigure(PLUGIN_HANDLE *handle, const string& newConfig)
  * @param elem			Reading iterator object
  */
 static void createPythonReadingData(PyObject* localDictionary,
-				    vector<Reading *>::const_iterator& elem)
+				    vector<Reading *>::iterator& elem)
 {
 	// Datapoints to add to localDictionary
 	PyObject* newDataPoints = PyDict_New();
