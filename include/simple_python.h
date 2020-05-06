@@ -22,14 +22,14 @@
  * It handles loading of a python module (provided script name)
  * and the Python3.x C API calls
  */
-class SimplePythonFilter : public FogLampFilter
+class SimplePythonFilter : public FogLAMPFilter
 {
 	public:
 		SimplePythonFilter(const std::string& name,
 				   ConfigCategory& config,
 				   OUTPUT_HANDLE* outHandle,
 				   OUTPUT_STREAM output) :
-				   FogLampFilter(name,
+				   FogLAMPFilter(name,
 						 config,
 						 outHandle,
 						 output)
