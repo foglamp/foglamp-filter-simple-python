@@ -17,12 +17,6 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -O3")
 # Set plugin type (south, north, filter)
 set(PLUGIN_TYPE "filter")
 
-# Fetch OS RELEASE CODENAME (i.e stretch, buster, xenial)
-execute_process(COMMAND lsb_release -cs
-    OUTPUT_VARIABLE RELEASE_CODENAME
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
 # Generation version header file
 set_source_files_properties(version.h PROPERTIES GENERATED TRUE)
 add_custom_command(
@@ -42,7 +36,11 @@ file(GLOB SOURCES *.cpp)
 
 # Find python3.x dev/lib package
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(PYTHON REQUIRED python3)
+if(${CMAKE_VERSION} VERSION_LESS "3.12.0") 
+    pkg_check_modules(PYTHON REQUIRED python3)
+else()
+    find_package(Python COMPONENTS Interpreter Development)
+endif()
 
 # Find FogLAMP includes and libs, by including FindFogLAMP.cmak file
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -73,17 +71,17 @@ else()
 endif()
 
 # Add Python 3.x header files
-include_directories(${PYTHON_INCLUDE_DIRS})
-
-# Pass RELEASE_CODENAME to C++ build for "buster" only
-if (RELEASE_CODENAME)
-	if (${RELEASE_CODENAME} MATCHES "buster")
-		add_definitions(-DPLUGIN_PYTHON_SHARED_LIBRARY=lib${PYTHON_LIBRARIES}.so)
-		message(STATUS "Setting -DPLUGIN_PYTHON_SHARED_LIBRARY=lib${PYTHON_LIBRARIES}.so for ${CMAKE_SYSTEM} on ${RELEASE_CODENAME}")
-	endif()
+if(${CMAKE_VERSION} VERSION_LESS "3.12.0") 
+    include_directories(${PYTHON_INCLUDE_DIRS})
+else()
+    include_directories(${Python_INCLUDE_DIRS})
 endif()
 
-link_directories(${PYTHON_LIBRARY_DIRS})
+if(${CMAKE_VERSION} VERSION_LESS "3.12.0") 
+    link_directories(${PYTHON_LIBRARY_DIRS})
+else()
+    link_directories(${Python_LIBRARY_DIRS})
+endif()
 
 # Add FogLAMP lib path
 link_directories(${FOGLAMP_LIB_DIRS})
@@ -96,7 +94,11 @@ target_link_libraries(${PROJECT_NAME} ${NEEDED_FOGLAMP_LIBS})
 
 # Add additional libraries
 # Add Python 3.x library
-target_link_libraries(${PROJECT_NAME} ${PYTHON_LIBRARIES})
+if(${CMAKE_VERSION} VERSION_LESS "3.12.0") 
+    target_link_libraries(${PROJECT_NAME} ${PYTHON_LIBRARIES})
+else()
+    target_link_libraries(${PROJECT_NAME} ${Python_LIBRARIES})
+endif()
 
 # Set the build version 
 set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1)
@@ -107,3 +109,4 @@ if (FOGLAMP_INSTALL)
 	message(STATUS "Installing ${PROJECT_NAME} in ${FOGLAMP_INSTALL}/plugins/${PLUGIN_TYPE}/${PROJECT_NAME}")
 	install(TARGETS ${PROJECT_NAME} DESTINATION ${FOGLAMP_INSTALL}/plugins/${PLUGIN_TYPE}/${PROJECT_NAME})
 endif()
+
