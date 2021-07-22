@@ -17,12 +17,6 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -O3")
 # Set plugin type (south, north, filter)
 set(PLUGIN_TYPE "filter")
 
-# Fetch OS RELEASE CODENAME (i.e stretch, buster, xenial)
-execute_process(COMMAND lsb_release -cs
-    OUTPUT_VARIABLE RELEASE_CODENAME
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
 # Generation version header file
 set_source_files_properties(version.h PROPERTIES GENERATED TRUE)
 add_custom_command(
@@ -83,19 +77,13 @@ else()
     include_directories(${Python_INCLUDE_DIRS})
 endif()
 
-# Pass RELEASE_CODENAME to C++ build for "buster" only
-if (RELEASE_CODENAME)
-	if (${RELEASE_CODENAME} MATCHES "buster")
-		if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
-			set(PY_LIB "lib${PYTHON_LIBRARIES}.so")
-		else()
-			set(PY_LIB "${Python_LIBRARIES}")
-		endif()
-
-		add_definitions(-DPLUGIN_PYTHON_SHARED_LIBRARY=${PY_LIB})
-		message(STATUS "Setting -DPYTHON_SHARED_LIBRARY=${PY_LIB} for ${CMAKE_SYSTEM} on ${RELEASE_CODENAME}")
-	endif()
+if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
+	set(PY_LIB "lib${PYTHON_LIBRARIES}.so")
+else()
+	set(PY_LIB "${Python_LIBRARIES}")
 endif()
+add_definitions(-DPLUGIN_PYTHON_SHARED_LIBRARY=${PY_LIB})
+message(STATUS "Setting -DPYTHON_SHARED_LIBRARY=${PY_LIB} for ${CMAKE_SYSTEM} on ${RELEASE_CODENAME}")
 
 if(${CMAKE_VERSION} VERSION_LESS "3.12.0") 
     link_directories(${PYTHON_LIBRARY_DIRS})
