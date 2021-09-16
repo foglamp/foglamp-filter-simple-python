@@ -23,7 +23,7 @@
 
 #define FILTER_NAME "simple-python"
 
-const char *default_config = QUOTE({
+static const char *default_config = QUOTE({
 	"plugin" : {
 		"description" : "Simple Python filter plugin",
                	"type" : "string",
