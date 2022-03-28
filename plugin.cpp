@@ -20,6 +20,8 @@
 #include <reading_set.h>
 #include <version.h>
 #include "simple_python.h"
+#include <pyruntime.h>
+#include <pythonreading.h>
 
 #define FILTER_NAME "simple-python"
 
@@ -46,10 +48,6 @@ static const char *default_config = QUOTE({
 	});
 
 using namespace std;
-static void* libpython_handle = NULL;
-static void createPythonReadingData(PyObject* localDictionary,
-				    vector<Reading *>::iterator& elem);
-static vector<Datapoint *>* getFilteredReadingData(PyObject* result);
 
 /**
  * The Filter plugin interface
@@ -117,43 +115,8 @@ PLUGIN_HANDLE plugin_init(ConfigCategory* config,
 		return NULL;
 	}
 
-	if (!Py_IsInitialized())
-	{
-#ifdef PLUGIN_PYTHON_SHARED_LIBRARY
-		string openLibrary = TO_STRING(PLUGIN_PYTHON_SHARED_LIBRARY);
-		if (!openLibrary.empty())
-		{
-			libpython_handle = dlopen(openLibrary.c_str(),
-						  RTLD_LAZY | RTLD_GLOBAL);
-			if (!libpython_handle)
-			{
-				Logger::getLogger()->fatal("Filter %s (%s) cannot pre-load "
-							   "'%s' library, aborting filter setup",
-							   handle->getConfig().getName().c_str(),
-							   FILTER_NAME,
-							   openLibrary.c_str());
-				// This aborts filter pipeline setup
-				delete handle;
-				return NULL;
-			}
-			else
-			{
-				Logger::getLogger()->info("Pre-loading of library '%s' "
-							  "is needed on this system",
-							  openLibrary.c_str());
-			}
-		}
-#endif
-		Py_Initialize();
-		PyEval_InitThreads(); // Initialize and acquire the global interpreter lock (GIL)
-		PyThreadState* save = PyEval_SaveThread(); // release GIL
-		handle->m_init = true;
-
-		Logger::getLogger()->debug("Python interpteter is being initialised by "
-					   "filter (%s), name %s",
-					   FILTER_NAME,
-					   config->getName().c_str());
-	}
+	// Embedded Python initialisation
+	PythonRuntime::getPythonRuntime();
 
 	return (PLUGIN_HANDLE)handle;
 }
@@ -186,8 +149,13 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 	}
 
 	PyGILState_STATE state = PyGILState_Ensure(); // acquire GIL
+
+	// Returns borrowed reference: do not remove object
 	PyObject* main = PyImport_AddModule("__main__");
+	// Returns borrowed reference: do not remove object
 	PyObject* globalDictionary = PyModule_GetDict(main);
+
+	// New reference, to remove
 	PyObject* userData = PyDict_New();
 
 	// Create a global variable, dict, called "user_data"
@@ -201,16 +169,14 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 	for (vector<Reading *>::iterator elem = readings->begin();
 					 elem != readings->end(); )
 	{
-		PyObject* localDictionary = PyDict_New();
-
-		// Create "reading" dict only in localDictionary
-		createPythonReadingData(localDictionary, elem);
+		PythonReading *pyReading = (PythonReading *)(*elem);
+		PyObject* inputDict = pyReading->toPython(true);
 
 		// Run Python code (with statements separated by \n)
 		PyObject* run = PyRun_String(("exec(" + pythonCode + ")").c_str(),
 					     Py_file_input,
 					     globalDictionary,
-					     localDictionary);
+					     inputDict);
 
 		if (PyErr_Occurred())
 		{
@@ -219,53 +185,38 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 		}
 		else
 		{
-			// Get 'reading' value: borrowed reference from localDictionary
-			PyObject* result = PyDict_GetItemString(localDictionary, "reading");
+			// Delete reading data along with datapoints
+			delete(*elem);
 
-			// Create a Reading object from Python 'reading' dict
-			std::vector<Datapoint *>* points = getFilteredReadingData(result);
+			// Set new Reading object with data returned from PyRun_String
+			*elem = new PythonReading(inputDict);
 
-			if (points && points->size())
+			// Check
+			if (*elem != NULL)
 			{
-				// Remove current datapoints
-				(*elem)->removeAllDatapoints();
-
-				// Add new ones
-				for (auto it = points->begin();
-					  it != points->end();
-					  ++it)
-				{
-					(*elem)->addDatapoint(*it);	
-				}
-				delete points;
+				// Call asset tracker
+				AssetTracker::getAssetTracker()->addAssetTrackingTuple(filter->getConfig().getName(),
+									(*elem)->getAssetName(),
+									string("Filter"));
 				elem++;
 			}
 			else
 			{
-				// Remove current reading
-				delete(*elem);
+				// Remove current reading from result set
 				elem = readings->erase(elem);
 			}
 		}
 
 		Py_CLEAR(run);
-		Py_CLEAR(localDictionary);
+		Py_CLEAR(inputDict);
 	}
 
+	// Remove user_data from dict
 	PyDict_DelItemString(globalDictionary, "user_data");
 
+	Py_CLEAR(userData);
+
 	PyGILState_Release(state);
-
-
-	// Call asset tracker
-	for (vector<Reading *>::const_iterator elem = readings->begin();
-						      elem != readings->end();
-						      ++elem)
-	{
-		AssetTracker::getAssetTracker()->addAssetTrackingTuple(filter->getConfig().getName(),
-									(*elem)->getAssetName(),
-									string("Filter"));
-	}
 
 	// Pass readingSet to the next filter
 	filter->m_func(filter->m_data, readingSet);
@@ -277,26 +228,6 @@ void plugin_ingest(PLUGIN_HANDLE *handle,
 void plugin_shutdown(PLUGIN_HANDLE *handle)
 {
 	SimplePythonFilter* filter = (SimplePythonFilter *)handle;
-
-	PyGILState_STATE state = PyGILState_Ensure();
-
-	// Cleanup Python 3.x
-	if (filter->m_init)
-	{
-		filter->m_init = false;
-
-		Py_Finalize();
-
-		if (libpython_handle)
-		{
-			dlclose(libpython_handle);
-		}
-	}
-	else
-	{
-		// Interpreter is still running, just release the GIL
-		PyGILState_Release(state);
-	}
 
 	// Remove filter object	
 	delete filter;
@@ -337,129 +268,6 @@ void plugin_reconfigure(PLUGIN_HANDLE *handle, const string& newConfig)
 
 // End of extern "C"
 };
-
-/**
- * Creates a Python dict from a single Reading object
- * and adds it to local dictionary with key "reading"
- *
- * @param localDictionary	Python local dictionary dict
- *				where to add the new "reading" dict
- * @param elem			Reading iterator object
- */
-static void createPythonReadingData(PyObject* localDictionary,
-				    vector<Reading *>::iterator& elem)
-{
-	// Datapoints to add to localDictionary
-	PyObject* newDataPoints = PyDict_New();
-
-	// Get all datapoints in the current reading
-	std::vector<Datapoint *>& dataPoints = (*elem)->getReadingData();
-	for (auto it = dataPoints.begin(); it != dataPoints.end(); ++it)
-	{
-		PyObject* value;
-		DatapointValue::dataTagType dataType = (*it)->getData().getType();
-
-		if (dataType == DatapointValue::dataTagType::T_INTEGER)
-		{
-			value = PyLong_FromLong((*it)->getData().toInt());
-		}
-		else if (dataType == DatapointValue::dataTagType::T_FLOAT)
-		{
-			value = PyFloat_FromDouble((*it)->getData().toDouble());
-		}
-		else
-		{
-			value = PyBytes_FromString((*it)->getData().toString().c_str());
-		}
-
-		// Add Datapoint: key and value
-		PyObject* key = PyBytes_FromString((*it)->getName().c_str());
-		PyDict_SetItem(newDataPoints, key, value);
-
-		// Remove temp objects
-		Py_CLEAR(key);
-		Py_CLEAR(value);
-	}
-
-	// Add reading datapoints to localDictionary
-	PyDict_SetItemString(localDictionary,
-			     "reading",
-			     newDataPoints);
-}
-
-/**
- * Get reading datapoints from a Python dict
- *
- * @param    result	PyObject with filtered reading datapoints
- * @return		Vector of Datapoint pointers or NULL
- */
-static vector<Datapoint *>* getFilteredReadingData(PyObject* result)
-{
-	if (!result ||
-	    !PyDict_Check(result) ||
-	    !PyDict_Size(result))
-	{
-		return NULL;
-	}
-
-	// Allocate output result
-	vector<Datapoint *>* newDatapoints = new vector<Datapoint *>();
-
-	/*
-	 * Create a Reading object from Python dict
-	 *
-	 * Fetch all Datapoins in 'reading' dict
-	 * dKey and dValue are borrowed references
-	 */
-	PyObject *dKey, *dValue;
-	Py_ssize_t dPos = 0;
-	while (PyDict_Next(result, &dPos, &dKey, &dValue))
-	{
-		DatapointValue* dataPoint;
-		if (PyLong_Check(dValue))
-		{
-			dataPoint =
-				new DatapointValue((long)PyLong_AsUnsignedLongMask(dValue));
-		}
-		else if (PyFloat_Check(dValue))
-		{
-			dataPoint =
-				new DatapointValue(PyFloat_AS_DOUBLE(dValue));
-		}
-		else if (PyBytes_Check(dValue))
-		{
-			dataPoint =
-				new DatapointValue(string(PyBytes_AsString(dValue)));
-		}
-		else if (PyUnicode_Check(dValue))
-		{
-			dataPoint =
-				new DatapointValue(string(PyUnicode_AsUTF8(dValue)));
-		}
-		else
-		{
-			delete dataPoint;
-
-			break;
-		}
-
-		// Get datapointName:
-		// reading[b'key'] ==> PyBytes_AsString(dKey)
-		// reading['key'] ==> PyUnicode_AsUTF8(dKey)
-		string datapointName = PyUnicode_Check(dKey) ?
-					PyUnicode_AsUTF8(dKey) :
-					PyBytes_AsString(dKey);
-
-		// Add datapoint to the output vector
-		newDatapoints->push_back(new Datapoint(datapointName, *dataPoint));
-
-		// Remove temp object
-		delete dataPoint;
-	}
-
-	// Return vector of datapoints
-	return newDatapoints;
-}
 
 /**
  * Log current Python 3.x error message
