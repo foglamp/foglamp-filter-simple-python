@@ -33,9 +33,7 @@ class SimplePythonFilter : public FogLAMPFilter
 						 config,
 						 outHandle,
 						 output)
-		{
-			m_init = false;
-		};
+		{};
 
 		void	setEnableFilter(bool enable) { m_enabled = enable; };
 		bool	configure();
@@ -47,8 +45,6 @@ class SimplePythonFilter : public FogLAMPFilter
 	public:
 		// Python  code to execute
 		std::string	m_code;
-		// Python interpreter has been started by this plugin
-		bool		m_init;
 
 	private:
 		// Configuration lock
